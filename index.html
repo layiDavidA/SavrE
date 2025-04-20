@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Order Builder</title>
+    <link rel="stylesheet" href="index.css">
+    <style>
+        /* Basic styles if index.css is empty or not used */
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; background-color: #f4f4f4; display: flex; gap: 30px; /* Arrange sections side-by-side */ }
+        .order-column, .ingredient-column { flex: 1; /* Make columns share space */ } /* Columns for layout */
+        h1, h2, h3 { color: #333; margin-top: 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        select, button { padding: 10px; margin-bottom: 15px; min-width: 200px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        button { background-color: #5cb85c; color: white; cursor: pointer; border: none; transition: background-color 0.2s ease; }
+        button:hover { background-color: #4cae4c; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        #menuSection { margin-top: 20px; padding: 15px; background-color: #e9e9e9; border-radius: 5px; }
+        .order-list-container, .ingredient-list-container { background-color: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 4px; margin-top: 10px; }
+        #orderList, #ingredientCostList { list-style: none; /* Remove default bullets */ padding-left: 0; margin-left: 0; min-height: 50px; }
+        #orderList li, #ingredientCostList li { padding: 5px 0; border-bottom: 1px dashed #eee; }
+        #orderList li:last-child, #ingredientCostList li:last-child { border-bottom: none; }
+        .total-section { margin-top: 15px; padding: 10px; background-color: #d9edf7; border: 1px solid #bce8f1; border-radius: 4px; font-weight: bold; font-size: 1.1em; color: #31708f; }
+        .ingredient-total-section { margin-top: 15px; padding: 10px; background-color: #fcf8e3; border: 1px solid #faebcc; border-radius: 4px; font-weight: bold; font-size: 1.1em; color: #8a6d3b; }
+
+        /* Make main controls less wide if needed */
+        .controls { max-width: 350px; margin-bottom: 20px;}
+    </style>
+</head>
+<body>
+
+    <div class="controls"> <!-- Wrap controls for better layout -->
+        <h1>Build Your Order</h1>
+
+        <div>
+            <label for="restaurantSelect">Choose a Restaurant:</label>
+            <select id="restaurantSelect">
+                <option value="">-- Select a Restaurant --</option>
+                <option value="mcdonalds">McDonald's</option>
+                <option value="chipotle">Chipotle</option>
+                <option value="wendys">Wendy's</option>
+                <option value="panda_express">Panda Express</option>
+            </select>
+        </div>
+
+        <div id="menuSection" style="display: none;">
+            <label for="itemSelect">Choose an Item:</label>
+            <select id="itemSelect">
+                <!-- Menu items will be populated here by JavaScript -->
+            </select>
+            <button id="addItemBtn">Add to Order</button>
+        </div>
+    </div>
+
+    <div class="order-column"> <!-- Column for the main order -->
+        <h2>Your Current Order:</h2>
+        <div class="order-list-container">
+            <ul id="orderList">
+                <!-- Order items will appear here -->
+            </ul>
+        </div>
+        <div id="totalSection" class="total-section">
+            Restaurant Total: $<span id="totalPrice">0.00</span>
+        </div>
+    </div>
+
+    <div class="ingredient-column"> <!-- NEW Column for ingredient costs -->
+        <h3>Est. Ingredient Cost Per Serving:</h3>
+        <div class="ingredient-list-container">
+             <ul id="ingredientCostList">
+                <!-- Ingredient costs will appear here -->
+            </ul>
+        </div>
+        <div id="ingredientTotalSection" class="ingredient-total-section">
+            Ingredient Total: $<span id="ingredientTotalPrice">0.00</span>
+        </div>
+         <p style="font-size: 0.8em; color: #666; margin-top: 10px;"><i>Note: Ingredient costs are rough estimates for raw materials.</i></p>
+    </div>
+
+
+    <!-- <<< START OF JAVASCRIPT >>> -->
+    <script>
+        // --- Data: Restaurant Menus with Prices ---
+        const menuData = {
+        mcdonalds: {
+            // Existing
+            "Big Mac": 5.99,
+            "McChicken": 2.99,
+            "Fries": 2.49,
+            "McNuggets (10pc)": 6.49,
+            "Coke": 1.99,
+            "McFlurry": 3.79,
+            "Quarter Pounder w/ Cheese": 6.49,
+            "Cheeseburger": 1.99,
+            "McDouble": 2.49,
+            "Filet-O-Fish": 5.49,
+            "Crispy Chicken Sandwich": 5.79,
+            "Egg McMuffin": 4.49,
+            "Sausage McMuffin w/ Egg": 4.79,
+            "Hash Browns": 1.79,
+            "Apple Pie": 1.49
+        },
+        chipotle: {
+            // Existing
+            "Burrito Bowl": 9.50, // Base price, meat extra varies
+            "Tacos (Steak)": 10.50, // Price depends on protein/qty
+            "Quesadilla (Chicken)": 9.80, // Price depends on protein
+            "Guacamole": 2.50,
+            "Chips": 1.80,
+            "Salad": 9.50, // Base price
+            "Burrito (Chicken)": 9.80, // Price depends on protein
+            "Chips & Guacamole": 4.30,
+            "Chips & Queso Blanco": 4.00,
+            "Queso Blanco (Side)": 2.20,
+            "Kid's Build Your Own (Taco)": 5.50
+        },
+        wendys: { // Keeping Wendy's as before for this example
+            "Baconator": 7.50,
+            "Dave's Single": 5.50,
+            "Chili": 3.00,
+            "Frosty": 1.99,
+            "Spicy Chicken Sandwich": 5.80,
+            "Fries": 2.60
+        },
+        panda_express: { // Added Panda Express Menu (A La Carte Estimates)
+            "Orange Chicken": 5.50,
+            "Beijing Beef": 5.75,
+            "Broccoli Beef": 5.50,
+            "Kung Pao Chicken": 5.50,
+            "Teriyaki Chicken": 5.60,
+            "Chow Mein (Side)": 4.50,
+            "Fried Rice (Side)": 4.50,
+            "Steamed White Rice (Side)": 3.50,
+            "Cream Cheese Rangoon (3pc)": 3.00,
+            "Veggie Spring Roll (2pc)": 2.80,
+            "Chicken Egg Roll (1pc)": 2.50
+        }
+    };
+
+        // --- Data: Combined Estimated Cost & Ingredients (SUBJECTIVE!) ---
+    // This structure holds both cost and the ingredient list for each item.
+    // If you use this, you DON'T need the separate ingredientListData object.
+    const ingredientCostData = {
+         mcdonalds: {
+            "Big Mac": { cost: 2.10, ingredients: ["Buns", "Beef Patty", "Special Sauce", "Lettuce", "Cheese", "Pickles", "Onion"] },
+            "McChicken": { cost: 1.05, ingredients: ["Bun", "Chicken Patty", "Lettuce", "Mayonnaise"] },
+            "Fries": { cost: 0.45, ingredients: ["Potatoes", "Vegetable Oil", "Salt"] },
+            "McNuggets (10pc)": { cost: 2.50, ingredients: ["Chicken Breast", "Batter/Breading", "Vegetable Oil"] },
+            "Coke": { cost: 0.25, ingredients: ["Carbonated Water", "HFCS", "Caramel Color", "Phosphoric Acid", "Natural Flavors", "Caffeine"] },
+            "McFlurry": { cost: 1.10, ingredients: ["Vanilla Soft Serve", "Candy/Cookie Topping"] },
+            "Quarter Pounder w/ Cheese": { cost: 2.50, ingredients: ["Bun", "Quarter Pound Beef Patty", "Cheese", "Ketchup", "Mustard", "Pickle Slices", "Onion"] },
+            "Cheeseburger": { cost: 0.80, ingredients: ["Bun", "Beef Patty", "Cheese", "Ketchup", "Mustard", "Pickle Slice", "Onion"] },
+            "McDouble": { cost: 1.10, ingredients: ["Bun", "Two Beef Patties", "Cheese", "Ketchup", "Mustard", "Pickle Slice", "Onion"] },
+            "Filet-O-Fish": { cost: 1.80, ingredients: ["Bun (Steamed)", "Fish Filet Patty", "Tartar Sauce", "Cheese"] },
+            "Crispy Chicken Sandwich": { cost: 2.00, ingredients: ["Potato Roll Bun", "Crispy Chicken Fillet", "Crinkle Cut Pickles"] },
+            "Egg McMuffin": { cost: 1.50, ingredients: ["English Muffin", "Egg", "Canadian Bacon", "Cheese"] },
+            "Sausage McMuffin w/ Egg": { cost: 1.65, ingredients: ["English Muffin", "Egg", "Sausage Patty", "Cheese"] },
+            "Hash Browns": { cost: 0.30, ingredients: ["Potatoes", "Vegetable Oil", "Salt"] },
+            "Apple Pie": { cost: 0.50, ingredients: ["Crust", "Apple Filling", "Sugar Glaze"] }
+        },
+        chipotle: {
+            "Burrito Bowl": { cost: 3.80, ingredients: ["Rice", "Beans", "Protein (Varies)", "Salsa", "Optional Toppings (Lettuce, Cheese, Sour Cream etc.)"] },
+            "Tacos (Steak)": { cost: 4.50, ingredients: ["Tortillas (Soft/Hard)", "Steak", "Salsa", "Optional Toppings"] },
+            "Quesadilla (Chicken)": { cost: 4.00, ingredients: ["Flour Tortilla", "Chicken", "Cheese", "Optional Fajita Veggies"] },
+            "Guacamole": { cost: 1.50, ingredients: ["Avocado", "Red Onion", "Cilantro", "Jalapeño", "Lime Juice", "Salt"] },
+            "Chips": { cost: 0.60, ingredients: ["Corn Tortillas", "Lime Juice", "Salt", "Oil"] },
+            "Salad": { cost: 3.50, ingredients: ["Supergreens Lettuce Blend", "Protein (Varies)", "Beans", "Salsa", "Vinaigrette", "Optional Toppings"] },
+            "Burrito (Chicken)": { cost: 4.00, ingredients: ["Flour Tortilla", "Chicken", "Rice", "Beans", "Salsa", "Optional Toppings"] },
+            "Chips & Guacamole": { cost: 2.10, ingredients: ["Corn Tortillas", "Lime Juice", "Salt", "Oil", "Avocado", "Red Onion", "Cilantro", "Jalapeño"] },
+            "Chips & Queso Blanco": { cost: 1.60, ingredients: ["Corn Tortillas", "Lime Juice", "Salt", "Oil", "Milk", "Cheese", "Peppers", "Tomatoes"] },
+            "Queso Blanco (Side)": { cost: 1.00, ingredients: ["Milk", "Cheese", "Peppers", "Tomatoes"] },
+            "Kid's Build Your Own (Taco)": { cost: 2.50, ingredients: ["Tortillas", "Protein", "Cheese", "Side (Rice/Beans)", "Drink", "Fruit/Chips"] }
+        },
+        wendys: {
+            "Baconator": { cost: 3.50, ingredients: ["Buns", "Two Beef Patties", "Cheese", "Bacon", "Ketchup", "Mayonnaise"] },
+            "Dave's Single": { cost: 2.40, ingredients: ["Bun", "Beef Patty", "Cheese", "Lettuce", "Tomato", "Onion", "Pickle", "Ketchup", "Mayonnaise"] },
+            "Chili": { cost: 1.20, ingredients: ["Ground Beef", "Kidney Beans", "Pinto Beans", "Tomatoes", "Onions", "Peppers", "Celery", "Chili Seasoning"] },
+            "Frosty": { cost: 0.75, ingredients: ["Milk", "Sugar", "Cream", "Cocoa (Chocolate)", "Natural Flavors"] },
+            "Spicy Chicken Sandwich": { cost: 2.20, ingredients: ["Bun", "Spicy Chicken Fillet", "Lettuce", "Mayonnaise"] },
+            "Fries": { cost: 0.50, ingredients: ["Potatoes", "Vegetable Oil", "Sea Salt"] }
+        },
+        panda_express: {
+            "Orange Chicken": { cost: 2.00, ingredients: ["Chicken", "Batter", "Orange Sauce (Sugar, Vinegar, Soy Sauce, Orange Flavor)", "Oil"] },
+            "Beijing Beef": { cost: 2.50, ingredients: ["Beef", "Batter", "Beijing Sauce (Sweet & Tangy)", "Onions", "Bell Peppers", "Oil"] },
+            "Broccoli Beef": { cost: 2.20, ingredients: ["Beef", "Broccoli", "Ginger Garlic Sauce", "Soy Sauce"] },
+            "Kung Pao Chicken": { cost: 2.10, ingredients: ["Chicken", "Zucchini", "Bell Peppers", "Onions", "Chili Peppers", "Peanuts", "Kung Pao Sauce"] },
+            "Teriyaki Chicken": { cost: 2.30, ingredients: ["Chicken Thigh", "Teriyaki Glaze"] },
+            "Chow Mein (Side)": { cost: 1.00, ingredients: ["Egg Noodles", "Cabbage", "Celery", "Onions", "Soy Sauce", "Oil"] },
+            "Fried Rice (Side)": { cost: 0.80, ingredients: ["Rice", "Egg", "Peas", "Carrots", "Green Onions", "Soy Sauce", "Oil"] },
+            "Steamed White Rice (Side)": { cost: 0.30, ingredients: ["Rice", "Water"] },
+            "Cream Cheese Rangoon (3pc)": { cost: 0.90, ingredients: ["Wonton Wrapper", "Cream Cheese", "Green Onion"] },
+            "Veggie Spring Roll (2pc)": { cost: 0.80, ingredients: ["Wrapper", "Cabbage", "Carrots", "Celery", "Black Mushrooms"] },
+            "Chicken Egg Roll (1pc)": { cost: 0.70, ingredients: ["Wrapper", "Chicken", "Cabbage", "Carrots", "Onion"] }
+        }
+    };
+
+        // --- Get DOM Elements ---
+        const restaurantSelect = document.getElementById('restaurantSelect');
+        const menuSection = document.getElementById('menuSection');
+        const itemSelect = document.getElementById('itemSelect');
+        const addItemBtn = document.getElementById('addItemBtn');
+        const orderList = document.getElementById('orderList');
+        const totalPriceSpan = document.getElementById('totalPrice');
+        // New elements for ingredient costs
+        const ingredientCostList = document.getElementById('ingredientCostList');
+        const ingredientTotalPriceSpan = document.getElementById('ingredientTotalPrice');
+
+        // --- State Variables ---
+        let currentTotal = 0.00;
+        let currentIngredientTotal = 0.00; // Variable for ingredient total
+
+        // --- Helper Function to Format Price ---
+        function formatPrice(price) {
+            // Handle cases where price might not be a number (e.g., "N/A")
+            if (typeof price !== 'number' || isNaN(price)) {
+                return price; // Return the non-numeric value as is
+            }
+            return price.toFixed(2); // Ensures two decimal places
+        }
+
+        // --- Event Listener for Restaurant Selection ---
+        restaurantSelect.addEventListener('change', function() {
+            const selectedRestaurant = this.value;
+
+            // Clear previous items and reset totals
+            itemSelect.innerHTML = '';
+            orderList.innerHTML = '';
+            ingredientCostList.innerHTML = ''; // Clear ingredient list
+            currentTotal = 0.00;
+            currentIngredientTotal = 0.00; // Reset ingredient total
+            totalPriceSpan.textContent = formatPrice(currentTotal);
+            ingredientTotalPriceSpan.textContent = formatPrice(currentIngredientTotal); // Update ingredient total display
+
+            if (selectedRestaurant) {
+                menuSection.style.display = 'block';
+                const items = menuData[selectedRestaurant] || {};
+                const itemNames = Object.keys(items);
+
+                if (itemNames.length > 0) {
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = "";
+                    defaultOption.textContent = "-- Select an Item --";
+                    itemSelect.appendChild(defaultOption);
+
+                    itemNames.forEach(itemName => {
+                        const itemPrice = items[itemName];
+                        const option = document.createElement('option');
+                        option.value = itemName;
+                        option.textContent = `${itemName} - $${formatPrice(itemPrice)}`;
+                        itemSelect.appendChild(option);
+                    });
+                    itemSelect.disabled = false;
+                    addItemBtn.disabled = false;
+                } else {
+                    const noItemOption = document.createElement('option');
+                    noItemOption.textContent = "-- No items available --";
+                    itemSelect.appendChild(noItemOption);
+                    itemSelect.disabled = true;
+                    addItemBtn.disabled = true;
+                }
+            } else {
+                menuSection.style.display = 'none';
+                itemSelect.disabled = true;
+                addItemBtn.disabled = true;
+            }
+        });
+
+                // --- Event Listener for Adding Item to Order ---
+        addItemBtn.addEventListener('click', function() {
+            const selectedItemName = itemSelect.value;
+            const selectedRestaurant = restaurantSelect.value;
+
+            if (selectedItemName && selectedRestaurant && menuData[selectedRestaurant]) {
+                const itemPrice = menuData[selectedRestaurant][selectedItemName];
+
+                // --- Add to Main Order ---
+                if (typeof itemPrice === 'number') {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${selectedItemName} - $${formatPrice(itemPrice)}`;
+                    orderList.appendChild(listItem);
+
+                    currentTotal += itemPrice;
+                    totalPriceSpan.textContent = formatPrice(currentTotal);
+
+                    // --- Add to Ingredient Cost List (Using Combined Data) ---
+                    let ingredientCost = "N/A";
+                    let ingredients = [];
+
+                    // Check if restaurant and item exist in the combined ingredient data
+                    const itemIngredientData = ingredientCostData[selectedRestaurant]?.[selectedItemName]; // Get the object for the item if it exists
+
+                    if (itemIngredientData) { // Check if we found the item's data object
+                        if (typeof itemIngredientData.cost === 'number') {
+                            ingredientCost = itemIngredientData.cost;
+                            currentIngredientTotal += ingredientCost; // Add to total
+                        }
+                        if (Array.isArray(itemIngredientData.ingredients)) {
+                            ingredients = itemIngredientData.ingredients; // Get the ingredients array
+                        }
+                    }
+
+                    // -- Create the Ingredient List Item (This part remains the same as the previous step) --
+                    const ingredientListItem = document.createElement('li');
+                    const itemHeader = document.createElement('div');
+                    const displayIngredientCost = (typeof ingredientCost === 'number') ? `$${formatPrice(ingredientCost)}` : ingredientCost;
+                    itemHeader.innerHTML = `<strong>${selectedItemName}</strong> (Est. Cost: ${displayIngredientCost})`;
+                    itemHeader.style.marginBottom = '5px';
+                    itemHeader.style.fontWeight = 'bold';
+                    ingredientListItem.appendChild(itemHeader);
+
+                    if (ingredients.length > 0) {
+                        const ingredientsUL = document.createElement('ul');
+                        // ... (add styles and list items for ingredients as before) ...
+                         ingredientsUL.style.marginLeft = '20px';
+                         ingredientsUL.style.fontSize = '0.9em';
+                         ingredientsUL.style.listStyleType = 'disc';
+                         ingredientsUL.style.marginTop = '0px';
+                         ingredientsUL.style.marginBottom = '10px';
+
+                         ingredients.forEach(ingredient => {
+                            const ingredientLI = document.createElement('li');
+                            ingredientLI.textContent = ingredient;
+                            ingredientLI.style.lineHeight = '1.4';
+                            ingredientsUL.appendChild(ingredientLI);
+                        });
+                        ingredientListItem.appendChild(ingredientsUL);
+                    } else {
+                         const noIngredientsP = document.createElement('p');
+                         // ... (add 'not available' message as before) ...
+                         noIngredientsP.textContent = "Ingredient list not available.";
+                         noIngredientsP.style.marginLeft = '20px';
+                         noIngredientsP.style.fontSize = '0.9em';
+                         noIngredientsP.style.fontStyle = 'italic';
+                         noIngredientsP.style.marginTop = '0px';
+                         noIngredientsP.style.marginBottom = '10px';
+                         ingredientListItem.appendChild(noIngredientsP);
+                    }
+
+                    ingredientCostList.appendChild(ingredientListItem);
+
+                    // Update ingredient total display
+                    ingredientTotalPriceSpan.textContent = formatPrice(currentIngredientTotal);
+
+                    itemSelect.value = ""; // Reset dropdown
+                } else {
+                     console.error(`Price not found for item: ${selectedItemName} at ${selectedRestaurant}`);
+                     alert("Error: Could not find the price for the selected item.");
+                }
+            } else if (!selectedItemName) {
+                alert("Please select an item from the menu first.");
+            } else {
+                 alert("Please select a valid restaurant first.");
+            }
+        });
+
+        // --- Initial State ---
+        itemSelect.disabled = true;
+        addItemBtn.disabled = true;
+        totalPriceSpan.textContent = formatPrice(currentTotal);
+        ingredientTotalPriceSpan.textContent = formatPrice(currentIngredientTotal); // Initialize ingredient total display
+
+    </script>
+    <!-- <<< END OF JAVASCRIPT >>> -->
+
+</body>
+</html><link rel="stylesheet" href="index.css">
+<script src="index.tsx" type="module"></script>
